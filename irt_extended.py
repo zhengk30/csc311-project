@@ -187,13 +187,13 @@ def irt(train_data, train_data_matrix, zero_data_matrix, val_data, qinfo, fsmat,
     return theta, beta, fsmat, log_likelihoods
 
 
-def evaluate(data, theta, beta, qinfo, fsmat):
+def evaluate(data, theta, beta, qinfo, fsmat, c):
     fmat = np.dot(fsmat, qinfo.transpose()) / np.sum(qinfo, axis=1)
     pred = []
     for i, q in enumerate(data["question_id"]):
         u = data["user_id"][i]
         x = (theta[u] - beta[q] + fmat[u][q]).sum()
-        p_a = sigmoid(x)
+        p_a = c + (1 - c) * sigmoid(x)
         pred.append(p_a >= 0.5)
     return np.sum((data["is_correct"] == np.array(pred))) / len(data["is_correct"])
 
@@ -228,7 +228,7 @@ def main():
         # plt.plot(iterations, valid_loglikes, label='log likelihood (validation set):' + 'gp={}'.format(str(gp)))
 
 ##        train_accuracy = evaluate(train_data, theta, beta, qinfo, fsmat)
-        valid_accuracy = evaluate(val_data, theta, beta, qinfo, fsmat)
+        valid_accuracy = evaluate(val_data, theta, beta, qinfo, fsmat, gp)
 ##        print('====================Guessing Parameter={}===================='.format(gp))
         print('Guessing parameter: {:.6f}\tValidation accuracy: {:.6f}'.
               format(gp, valid_accuracy))
