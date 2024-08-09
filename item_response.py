@@ -1,10 +1,11 @@
+import random
+
 from utils import (
     load_train_csv,
     load_valid_csv,
     load_public_test_csv,
     load_train_sparse,
 )
-import random
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -119,7 +120,7 @@ def main():
     val_data = load_valid_csv("./data")
     test_data = load_public_test_csv("./data")
 
-    learning_rate = 0.02
+    learning_rate = 0.005  # 0.02
     num_iterations = 50
     theta, beta, log_likes = irt(train_data, val_data, learning_rate, num_iterations)
     iterations = [*range(num_iterations)]
@@ -139,12 +140,19 @@ def main():
     test_accuracy = evaluate(test_data, theta, beta)
     print('Validation accuracy: {:.6f}\nTest accuracy: {:.6f}'.
           format(valid_accuracy, test_accuracy))
+    #####################################################################
+    #                       END OF YOUR CODE                            #
+    #####################################################################
 
+    #####################################################################
+    # TODO:                                                             #
+    # Implement part (d)                                                #
+    #####################################################################
     rand_questions = random.sample(range(beta.shape[0]), 3)
     plt.figure(figsize=(10, 6))
-    plt.scatter(theta, [sigmoid(t - beta[rand_questions[0]]) for t in theta], label='q1')
-    plt.scatter(theta, [sigmoid(t - beta[rand_questions[1]]) for t in theta], label='q2')
-    plt.scatter(theta, [sigmoid(t - beta[rand_questions[2]]) for t in theta], label='q3')
+    plt.scatter(theta, [sigmoid(t - beta[1]) for t in theta], label='q1')
+    plt.scatter(theta, [sigmoid(t - beta[4]) for t in theta], label='q2')
+    plt.scatter(theta, [sigmoid(t - beta[8]) for t in theta], label='q3')
     plt.xlabel('theta')
     plt.ylabel('prob. correct prediction')
     plt.legend()

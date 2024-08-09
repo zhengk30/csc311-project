@@ -127,10 +127,10 @@ def load_student_age(base_path='./data'):
             student_info['age'].append(age)
 
     return student_info
-    
+
 
 def update_theta_beta_fsmat(data, data_matrix, data_zero_out, lr, theta, beta, qinfo, fsmat, c):
-    num_subjects_per_question = np.sum(qinfo, axis=1)
+    num_subjects_per_question = np.count_nonzero(qinfo, axis=1)
     fmat = np.dot(fsmat, qinfo.transpose()) / num_subjects_per_question
 
     partial_theta = np.zeros(theta.shape[0])
@@ -158,6 +158,16 @@ def update_theta_beta_fsmat(data, data_matrix, data_zero_out, lr, theta, beta, q
         1 / np.dot(np.expand_dims(num_subjects_per_question, axis=1), np.ones((1, num_subjects)))
     )  # Use chain rule to compute the partial of loss with respect to fsmat.
 
+    #     # update alpha
+    #     x = (theta_mat - beta_mat + alpha_mat) * k_mat
+    #     prob = sigmoid(x) * (1 - c) + c
+    #     prob[nan_mask] = 0
+    #     # d (alpha_mat) / d (alpha) = 1 / (# subjects in each question)
+    #     alpha_mat_de_alpha = 1 / np.expand_dims(np.sum(q_meta, axis=1), axis=1) @ np.ones((1, S))
+    #     # d (loss) / d (alpha_mat) = ((prob - correct) * k) * (1-c)
+    #     l_de_alpha_mat = ((prob - zero_train_matrix) * k_mat) * (1 - c)
+    #
+    #     alpha -= lr * (l_de_alpha_mat @ alpha_mat_de_alpha + lambd * alpha)
     theta += lr * partial_theta
     beta += lr * partial_beta
     fsmat += lr * partial_fsmat
@@ -188,13 +198,13 @@ def irt(train_data, train_data_matrix, zero_data_matrix, val_data, qinfo, fsmat,
 
 
 def evaluate(data, theta, beta, qinfo, fsmat, c):
-    fmat = np.dot(fsmat, qinfo.transpose()) / np.sum(qinfo, axis=1)
+    fmat = np.dot(fsmat, qinfo.transpose()) / np.count_nonzero(qinfo, axis=1)
     pred = []
     for i, q in enumerate(data["question_id"]):
         u = data["user_id"][i]
         x = (theta[u] - beta[q] + fmat[u][q]).sum()
         p_a = c + (1 - c) * sigmoid(x)
-        pred.append(p_a >= 0.5)
+        pred.append(int(p_a >= 0.5))
     return np.sum((data["is_correct"] == np.array(pred))) / len(data["is_correct"])
 
 
@@ -209,57 +219,54 @@ def main():
     qinfo = load_question_info()
     fsmat = load_fsmat(qinfo, train_matrix, zero_train_matrix)
 
-    lr = 0.005  # 0.005
-    num_iterations = 100 # 50
-    # guessing_param = 0.2
-    guessing_params = [0, 0.2, 0.25, 0.33, 0.5]
-    iterations = [*range(num_iterations)]
-    train_accs, valid_accs = [], []
-    for gp in guessing_params:
-        theta, beta, fsmat, log_likes = irt(
-            train_data, train_matrix, zero_train_matrix, val_data,
-            qinfo, fsmat, lr, num_iterations, gp
-        )
+    lr = 0.005
+    num_iterations = 50
+    # guessing_param = 0.12
+    # theta, beta, fsmat, log_likes = irt(
+    #     train_data, train_matrix, zero_train_matrix, val_data,
+    #     qinfo, fsmat, lr, num_iterations, guessing_param
+    # )
+    # val_acc = evaluate(val_data, theta, beta, qinfo, fsmat, guessing_param)
+    # print(val_acc)
+    # test_acc = evaluate(test_data, theta, beta, qinfo, fsmat, guessing_param)
+    # print(test_acc)
+#     guessing_params = [0.1, 0.12, 0.14, 0.16, 0.18, 0.20, 0.25, 0.33]
+#     iterations = [*range(num_iterations)]
+#     train_accs, valid_accs = [], []
+#     for gp in guessing_params:
+#         theta, beta, fsmat, log_likes = irt(
+#             train_data, train_matrix, zero_train_matrix, val_data,
+#             qinfo, fsmat, lr, num_iterations, gp
+#         )
+#
+#         # train_loglikes = log_likes['train_log_likelihoods']
+#         # valid_loglikes = log_likes['valid_log_likelihoods']
+#
+#         # plt.plot(iterations, train_loglikes, label='log likelihood (training set):' + 'gp={}'.format(str(gp)))
+#         # plt.plot(iterations, valid_loglikes, label='log likelihood (validation set):' + 'gp={}'.format(str(gp)))
+#
+# ##        train_accuracy = evaluate(train_data, theta, beta, qinfo, fsmat)
+#         valid_accuracy = evaluate(val_data, theta, beta, qinfo, fsmat, gp)
+# ##        print('====================Guessing Parameter={}===================='.format(gp))
+#         print('Guessing parameter: {:.6f}\tValidation accuracy: {:.6f}'.
+#               format(gp, valid_accuracy))
+    optimal_gp = 0.12
+    theta, beta, fsmat, log_likes = irt(
+        train_data, train_matrix, zero_train_matrix, val_data,
+        qinfo, fsmat, lr, num_iterations, optimal_gp
+    )
+    print(evaluate(val_data, theta, beta, qinfo, fsmat, optimal_gp))
+    print(evaluate(test_data, theta, beta, qinfo, fsmat, optimal_gp))
 
-        # train_loglikes = log_likes['train_log_likelihoods']
-        # valid_loglikes = log_likes['valid_log_likelihoods']
-
-        # plt.plot(iterations, train_loglikes, label='log likelihood (training set):' + 'gp={}'.format(str(gp)))
-        # plt.plot(iterations, valid_loglikes, label='log likelihood (validation set):' + 'gp={}'.format(str(gp)))
-
-##        train_accuracy = evaluate(train_data, theta, beta, qinfo, fsmat)
-        valid_accuracy = evaluate(val_data, theta, beta, qinfo, fsmat, gp)
-##        print('====================Guessing Parameter={}===================='.format(gp))
-        print('Guessing parameter: {:.6f}\tValidation accuracy: {:.6f}'.
-              format(gp, valid_accuracy))
-##        train_accs.append(train_accuracy)
-##        valid_accs.append(valid_accuracy)
-        # valid_accuracy = evaluate(val_data, theta, beta, qinfo, fsmat)
-        # test_accuracy = evaluate(test_data, theta, beta, qinfo, fsmat)
-        # print('====================Guessing Parameter={}===================='.format(gp))
-        # print('Validation accuracy: {:.6f}\nTest accuracy: {:.6f}'.
-        #       format(valid_accuracy, test_accuracy))
-
-##    plt.figure(figsize=(10, 6))
-##    plt.title('Accuracy (acc) vs. Guessing Param. (gp)')
-##    plt.plot(guessing_params, train_accs, label='training acc.')
-##    plt.plot(guessing_params, valid_accs, label='validation acc.')
-##    plt.xlabel('gp')
-##    plt.ylabel('acc')
-##    plt.legend()
-##    plt.savefig('extended_irt_trainvalaccs.png')
-##
-##    optimal_gp = 0.1
-##    theta, beta, fsmat, log_likes = irt(
-##        train_data, train_matrix, zero_train_matrix, val_data,
-##        qinfo, fsmat, lr, num_iterations, optimal_gp
-##    )
-##    valid_accuracy = evaluate(val_data, theta, beta, qinfo, fsmat)
-##    test_accuracy = evaluate(test_data, theta, beta, qinfo, fsmat)
-##    print('Validation accuracy: {:.6f}\nTest accuracy: {:.6f}'.
-##          format(valid_accuracy, test_accuracy))
+    plt.figure(figsize=(10, 6))
+    plt.title('Log Likelihood vs. No. Iterations')
+    plt.plot([*range(num_iterations)], log_likes['train_log_likelihoods'], label='training ll.')
+    plt.plot([*range(num_iterations)], log_likes['valid_log_likelihoods'], label='validation ll.')
+    plt.xlabel('iteration')
+    plt.ylabel('log likelihood')
+    plt.legend()
+    plt.savefig('extended_irt.png')
 
 
 if __name__ == '__main__':
     main()
-

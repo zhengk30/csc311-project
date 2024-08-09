@@ -88,7 +88,7 @@ def train(model, lr, lamb, train_data, zero_train_data, train_dict, valid_data, 
     :param train_dict: Dict
     :param valid_data: Dict
     :param num_epoch: int
-    :return: Tuple (training accuracies, validation accuracies)
+    :return: None
     """
     # Tell PyTorch you are training the model.
     model.train()
@@ -162,8 +162,8 @@ def evaluate(model, train_data, valid_data):
 def main():
     zero_train_matrix, train_matrix, train_dict, valid_data, test_data = load_data()
     num_question = train_matrix.shape[1]
-    optimal_k = 100
-    optimal_lr = 0.01
+    optimal_k = 50
+    optimal_lr = 0.005
     optimal_num_epoch = 50
 
     model = AutoEncoder(num_question, optimal_k)
